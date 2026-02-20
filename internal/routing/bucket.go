@@ -10,6 +10,12 @@ type Bucket struct {
 
 const K = 8
 
+func NewBucket() *Bucket {
+	b := &Bucket{}
+	b.nodes = make([]*Node, 0, K)
+	return b
+}
+
 func (b *Bucket) Insert(node *Node) (*Node, bool) {
 	if len(b.nodes) == K {
 		for i, n := range b.nodes {
