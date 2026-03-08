@@ -30,6 +30,9 @@ func NewRoutingTable(self nodeid.NodeID) *RoutingTable {
 
 func (rt *RoutingTable) Insert(node *Node) (*Node, bool) {
 	i := rt.self.PrefixLen(node.ID)
+	if i >= 160 {
+		return nil, false // don't insert self
+	}
 	rt.mu.Lock()
 	node, success := rt.buckets[i].Insert(node)
 	rt.mu.Unlock()
@@ -38,6 +41,9 @@ func (rt *RoutingTable) Insert(node *Node) (*Node, bool) {
 
 func (rt *RoutingTable) Remove(node *Node) bool {
 	i := rt.self.PrefixLen(node.ID)
+	if i >= 160 {
+		return false
+	}
 	rt.mu.Lock()
 	ok := rt.buckets[i].Remove(node.ID)
 	rt.mu.Unlock()
