@@ -148,6 +148,50 @@ func TestTablePrefixLen160Boundary(t *testing.T) {
 	}
 }
 
+func TestTableSnapshot(t *testing.T) {
+	self := nodeid.NodeID{}
+	rt := NewRoutingTable(self)
+
+	ids := []nodeid.NodeID{{0x80}, {0x40}, {0x20}, {0x10}, {0x08}}
+	for _, id := range ids {
+		rt.Insert(makeTableNode(id))
+	}
+
+	snap := rt.Snapshot()
+	if len(snap) != len(ids) {
+		t.Fatalf("expected %d nodes in snapshot, got %d", len(ids), len(snap))
+	}
+
+	found := make(map[byte]bool)
+	for _, n := range snap {
+		found[n.ID[0]] = true
+	}
+	for _, id := range ids {
+		if !found[id[0]] {
+			t.Errorf("snapshot missing node %x", id[0])
+		}
+	}
+}
+
+func TestTableSnapshotEmpty(t *testing.T) {
+	self := nodeid.NodeID{}
+	rt := NewRoutingTable(self)
+
+	snap := rt.Snapshot()
+	if len(snap) != 0 {
+		t.Fatalf("expected 0 nodes in empty snapshot, got %d", len(snap))
+	}
+}
+
+func TestTableSelf(t *testing.T) {
+	self := nodeid.NodeID{0xAB, 0xCD}
+	rt := NewRoutingTable(self)
+
+	if rt.Self() != self {
+		t.Errorf("Self() returned %x, want %x", rt.Self(), self)
+	}
+}
+
 func TestTableRemove(t *testing.T) {
 	self := nodeid.NodeID{}
 	rt := NewRoutingTable(self)

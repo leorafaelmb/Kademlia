@@ -7,12 +7,13 @@ import (
 )
 
 type Config struct {
-	Port           int
-	BootstrapNodes []string
-	Alpha          int
-	K              int
-	PeerTTL        time.Duration
-	Logger         *slog.Logger
+	Port             int
+	BootstrapNodes   []string
+	Alpha            int
+	K                int
+	PeerTTL          time.Duration
+	Logger           *slog.Logger
+	RoutingTablePath string
 }
 
 func DefaultConfig() Config {
@@ -57,5 +58,11 @@ func WithAlpha(alpha int) Option {
 func WithLogger(l *slog.Logger) Option {
 	return func(c *Config) {
 		c.Logger = l
+	}
+}
+
+func WithRoutingTable(path string) Option {
+	return func(c *Config) {
+		c.RoutingTablePath = path
 	}
 }

@@ -89,6 +89,22 @@ func (rt *RoutingTable) FindClosest(target nodeid.NodeID, count int) []*Node {
 	return candidates
 }
 
+// Snapshot returns a copy of all nodes in the routing table.
+func (rt *RoutingTable) Snapshot() []*Node {
+	rt.mu.RLock()
+	defer rt.mu.RUnlock()
+	var nodes []*Node
+	for _, b := range rt.buckets {
+		nodes = append(nodes, b.Nodes()...)
+	}
+	return nodes
+}
+
+// Self returns the node ID of the local node.
+func (rt *RoutingTable) Self() nodeid.NodeID {
+	return rt.self
+}
+
 func (rt *RoutingTable) NumNodes() int {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()

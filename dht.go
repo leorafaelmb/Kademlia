@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"os"
 	"sort"
 	"sync"
 	"time"
@@ -14,6 +15,7 @@ import (
 	"github.com/leorafaelmb/Kademlia/internal/nodeid"
 	"github.com/leorafaelmb/Kademlia/internal/routing"
 	"github.com/leorafaelmb/Kademlia/internal/token"
+	"github.com/leorafaelmb/bencode"
 )
 
 const (
@@ -41,7 +43,20 @@ func New(opts ...Option) (*DHT, error) {
 	}
 
 	id := nodeid.New()
+	var savedNodes []*routing.Node
+
+	if config.RoutingTablePath != "" {
+		if loadedID, nodes, err := loadRoutingTable(config.RoutingTablePath); err == nil {
+			id = loadedID
+			savedNodes = nodes
+		}
+	}
+
 	table := routing.NewRoutingTable(id)
+	for _, n := range savedNodes {
+		table.Insert(n)
+	}
+
 	tokens := token.New()
 	peers := NewPeerStore(config.PeerTTL)
 
@@ -361,6 +376,55 @@ func (d *DHT) Close() error {
 	close(d.stop)
 	d.wg.Wait()
 	return d.server.Close()
+}
+
+// Save serializes the routing table to disk at the given path.
+// Uses atomic write (tmp file + rename) to prevent corruption.
+func (d *DHT) Save(path string) error {
+	nodes := d.table.Snapshot()
+	dict := map[string]interface{}{
+		"id":    string(d.id[:]),
+		"nodes": compactNodes(nodes),
+	}
+	data, err := bencode.Encode(dict)
+	if err != nil {
+		return fmt.Errorf("encode routing table: %w", err)
+	}
+
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return fmt.Errorf("write routing table: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("rename routing table: %w", err)
+	}
+	return nil
+}
+
+// loadRoutingTable reads a persisted routing table from disk.
+func loadRoutingTable(path string) (nodeid.NodeID, []*routing.Node, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nodeid.NodeID{}, nil, err
+	}
+
+	decoded, err := bencode.Decode(data)
+	if err != nil {
+		return nodeid.NodeID{}, nil, fmt.Errorf("decode routing table: %w", err)
+	}
+
+	dict, ok := decoded.(map[string]interface{})
+	if !ok {
+		return nodeid.NodeID{}, nil, fmt.Errorf("routing table is not a dict")
+	}
+
+	id, err := bytesFromArgs(dict, "id")
+	if err != nil {
+		return nodeid.NodeID{}, nil, fmt.Errorf("routing table missing id: %w", err)
+	}
+
+	nodes := parseCompactNodes(dict["nodes"])
+	return id, nodes, nil
 }
 
 // --- Iterative lookup ---
